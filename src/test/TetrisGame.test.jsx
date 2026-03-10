@@ -254,8 +254,10 @@ describe('TetrisGame 组件测试', () => {
       const restartButton = screen.getByText('🔄 重新开始')
       await user.click(restartButton)
       
-      // Game should still be running
-      expect(screen.getByText('⏸️ 暂停')).toBeInTheDocument()
+      // After restart, game should be running again
+      await waitFor(() => {
+        expect(screen.getByText('⏸️ 暂停')).toBeInTheDocument()
+      }, { timeout: 3000 })
     })
   })
 

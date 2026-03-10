@@ -32,36 +32,20 @@ export default function TetrisGame() {
   const dropCounterRef = useRef(0)
   const dropIntervalRef = useRef(1000)
   
-  // 游戏数据的直接引用（用于频繁访问）
+  // 游戏数据的 refs
   const boardRef = useRef(null)
   const currentPieceRef = useRef(null)
   const nextPieceRef = useRef(null)
-  const scoreRef = useRef(0)
-  const linesRef = useRef(0)
-  const levelRef = useRef(1)
-  const isPausedRef = useRef(false)
-  const gameOverRef = useRef(false)
-  const gameStartedRef = useRef(false)
-  
-  // 同步 refs 和 state
-  useEffect(() => { boardRef.current = board }, [board])
-  useEffect(() => { currentPieceRef.current = currentPiece }, [currentPiece])
-  useEffect(() => { nextPieceRef.current = nextPiece }, [nextPiece])
-  useEffect(() => { isPausedRef.current = isPaused }, [isPaused])
-  useEffect(() => { gameOverRef.current = gameOver }, [gameOver])
-  useEffect(() => { gameStartedRef.current = gameStarted }, [gameStarted])
   
   // 绘制单个方块
   const drawBlock = useCallback((ctx, x, y, color) => {
     ctx.fillStyle = color
     ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE - 1, BLOCK_SIZE - 1)
     
-    // 添加高光效果
     ctx.fillStyle = 'rgba(255, 255, 255, 0.3)'
     ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE - 1, 3)
     ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, 3, BLOCK_SIZE - 1)
     
-    // 添加阴影效果
     ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'
     ctx.fillRect(x * BLOCK_SIZE, (y + 1) * BLOCK_SIZE - 4, BLOCK_SIZE - 1, 3)
     ctx.fillRect((x + 1) * BLOCK_SIZE - 4, y * BLOCK_SIZE, 3, BLOCK_SIZE - 1)
@@ -75,11 +59,9 @@ export default function TetrisGame() {
     const ctx = canvas.getContext('2d')
     const board = boardRef.current
     
-    // 清空画布
     ctx.fillStyle = '#1a1a2e'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
     
-    // 绘制网格
     ctx.strokeStyle = '#2a2a4e'
     ctx.lineWidth = 0.5
     for (let i = 0; i <= COLS; i++) {
@@ -95,7 +77,6 @@ export default function TetrisGame() {
       ctx.stroke()
     }
     
-    // 绘制已固定的方块
     board.forEach((row, y) => {
       row.forEach((cell, x) => {
         if (cell) {
@@ -104,7 +85,6 @@ export default function TetrisGame() {
       })
     })
     
-    // 绘制当前方块
     const currentPiece = currentPieceRef.current
     if (currentPiece) {
       currentPiece.shape.forEach((row, y) => {
@@ -125,17 +105,14 @@ export default function TetrisGame() {
     const ctx = canvas.getContext('2d')
     const nextPiece = nextPieceRef.current
     
-    // 清空画布
     ctx.fillStyle = '#1a1a2e'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
     
     if (!nextPiece) return
     
-    // 计算居中位置
     const offsetX = (canvas.width / BLOCK_SIZE - nextPiece.shape[0].length) / 2
     const offsetY = (canvas.height / BLOCK_SIZE - nextPiece.shape.length) / 2
     
-    // 绘制方块
     nextPiece.shape.forEach((row, y) => {
       row.forEach((value, x) => {
         if (value) {
@@ -151,150 +128,17 @@ export default function TetrisGame() {
     drawNextPiece()
   }, [drawBoard, drawNextPiece])
   
-  // 方块下落
-  const dropPiece = useCallback(() => {
-    if (!currentPieceRef.current || isPausedRef.current || gameOverRef.current) return
-    
-    const currentPiece = currentPieceRef.current
-    const board = boardRef.current
-    const nextPiece = nextPieceRef.current
-    const levelNum = levelRef.current || level
-    
-    const newPiece = { ...currentPiece, y: currentPiece.y + 1 }
-    
-    if (checkCollision(board, newPiece)) {
-      // 碰撞，合并方块
-      const newBoard = mergePiece(board, currentPiece)
-      const { board: clearedBoard, linesCleared } = clearLines(newBoard)
-      
-      boardRef.current = clearedBoard
-      setBoard(clearedBoard)
-      
-      const newLines = (linesRef.current || lines) + linesCleared
-      linesRef.current = newLines
-      setLines(newLines)
-      
-      const newScore = (scoreRef.current || score) + linesCleared * 100 * (levelRef.current || level)
-      scoreRef.current = newScore
-      setScore(newScore)
-      
-      const newLevel = Math.floor(newLines / 10) + 1
-      levelRef.current = newLevel
-      setLevel(newLevel)
-      
-      // 生成新方块
-      const newNextPiece = createPiece()
-      const oldNext = nextPiece || createPiece()
-      
-      currentPieceRef.current = oldNext
-      setCurrentPiece(oldNext)
-      
-      nextPieceRef.current = newNextPiece
-      setNextPiece(newNextPiece)
-      
-      // 检查游戏结束
-      if (checkCollision(clearedBoard, oldNext)) {
-        gameOverRef.current = true
-        setGameOver(true)
-        stopGameLoop()
-      }
-    } else {
-      currentPieceRef.current = newPiece
-      setCurrentPiece(newPiece)
+  // 停止游戏循环
+  const stopGameLoop = useCallback(() => {
+    if (gameLoopRef.current) {
+      cancelAnimationFrame(gameLoopRef.current)
+      gameLoopRef.current = null
     }
   }, [])
 
-  // 移动方块
-  const movePiece = useCallback((direction) => {
-    if (!currentPieceRef.current || isPausedRef.current || gameOverRef.current) return
-    
-    const currentPiece = currentPieceRef.current
-    const board = boardRef.current
-    
-    const newPiece = { ...currentPiece, x: currentPiece.x + direction }
-    
-    if (!checkCollision(board, newPiece)) {
-      currentPieceRef.current = newPiece
-      setCurrentPiece(newPiece)
-      render()
-    }
-  }, [render])
-
-  // 旋转方块
-  const rotatePiece = useCallback(() => {
-    if (!currentPieceRef.current || isPausedRef.current || gameOverRef.current) return
-    
-    const currentPiece = currentPieceRef.current
-    const board = boardRef.current
-    
-    const rotated = rotate(currentPiece)
-    
-    // 墙踢（wall kick）- 尝试多个位置
-    const kicks = [0, -1, 1, -2, 2]
-    for (const kick of kicks) {
-      const newPiece = { ...rotated, x: currentPiece.x + kick }
-      if (!checkCollision(board, newPiece)) {
-        currentPieceRef.current = newPiece
-        setCurrentPiece(newPiece)
-        render()
-        break
-      }
-    }
-  }, [render])
-
-  // 快速下落
-  const hardDrop = useCallback(() => {
-    if (!currentPieceRef.current || isPausedRef.current || gameOverRef.current) return
-    
-    const currentPiece = currentPieceRef.current
-    const board = boardRef.current
-    const nextPiece = nextPieceRef.current
-    
-    let newY = currentPiece.y
-    while (!checkCollision(board, { ...currentPiece, y: newY + 1 })) {
-      newY++
-    }
-    
-    const newPiece = { ...currentPiece, y: newY }
-    const newBoard = mergePiece(board, newPiece)
-    const { board: clearedBoard, linesCleared } = clearLines(newBoard)
-    
-    boardRef.current = clearedBoard
-    setBoard(clearedBoard)
-    
-    const newLines = (linesRef.current || lines) + linesCleared
-    linesRef.current = newLines
-    setLines(newLines)
-    
-    const newScore = (scoreRef.current || score) + linesCleared * 100 * level
-    scoreRef.current = newScore
-    setScore(newScore)
-    
-    const newLevel = Math.floor(newLines / 10) + 1
-    levelRef.current = newLevel
-    setLevel(newLevel)
-    
-    const newNextPiece = createPiece()
-    const oldNext = nextPiece || createPiece()
-    
-    currentPieceRef.current = oldNext
-    setCurrentPiece(oldNext)
-    
-    nextPieceRef.current = newNextPiece
-    setNextPiece(newNextPiece)
-    
-    if (checkCollision(clearedBoard, oldNext)) {
-      gameOverRef.current = true
-      setGameOver(true)
-      stopGameLoop()
-    }
-    
-    render()
-  }, [level, lines, score, render])
-
   // 游戏循环函数
   const gameLoop = useCallback((timestamp) => {
-    if (!gameStartedRef.current || isPausedRef.current || gameOverRef.current) {
+    if (!gameStarted || isPaused || gameOver) {
       return
     }
     
@@ -304,38 +148,135 @@ export default function TetrisGame() {
     dropCounterRef.current += deltaTime
     
     if (dropCounterRef.current > dropIntervalRef.current) {
-      dropPiece()
       dropCounterRef.current = 0
+      
+      // 下落逻辑
+      if (currentPieceRef.current) {
+        const piece = currentPieceRef.current
+        const newPiece = { ...piece, y: piece.y + 1 }
+        
+        if (checkCollision(boardRef.current, newPiece)) {
+          const newBoard = mergePiece(boardRef.current, piece)
+          const { board: clearedBoard, linesCleared } = clearLines(newBoard)
+          
+          const newLines = lines + linesCleared
+          const newScore = score + linesCleared * 100 * level
+          const newLevel = Math.floor(newLines / 10) + 1
+          
+          const newNextPiece = createPiece()
+          const oldNext = nextPiece || createPiece()
+          
+          boardRef.current = clearedBoard
+          currentPieceRef.current = oldNext
+          nextPieceRef.current = newNextPiece
+          
+          setBoard(clearedBoard)
+          setLines(newLines)
+          setScore(newScore)
+          setLevel(newLevel)
+          setCurrentPiece(oldNext)
+          setNextPiece(newNextPiece)
+          
+          if (checkCollision(clearedBoard, oldNext)) {
+            setGameOver(true)
+            stopGameLoop()
+          }
+        } else {
+          currentPieceRef.current = newPiece
+          setCurrentPiece(newPiece)
+        }
+      }
     }
     
     render()
-    
     gameLoopRef.current = requestAnimationFrame(gameLoop)
-  }, [dropPiece, render])
+  }, [gameStarted, isPaused, gameOver, lines, score, level, nextPiece, render, stopGameLoop])
   
   // 启动游戏循环
   const startGameLoop = useCallback(() => {
-    if (gameLoopRef.current) {
-      cancelAnimationFrame(gameLoopRef.current)
-    }
-    
+    stopGameLoop()
     lastTimeRef.current = performance.now()
     dropCounterRef.current = 0
     gameLoopRef.current = requestAnimationFrame(gameLoop)
-  }, [gameLoop])
-  
-  // 停止游戏循环
-  const stopGameLoop = useCallback(() => {
-    if (gameLoopRef.current) {
-      cancelAnimationFrame(gameLoopRef.current)
-      gameLoopRef.current = null
+  }, [stopGameLoop, gameLoop])
+
+  // 移动方块
+  const movePiece = useCallback((direction) => {
+    if (!currentPieceRef.current || isPaused || gameOver) return
+    
+    const piece = currentPieceRef.current
+    const newPiece = { ...piece, x: piece.x + direction }
+    
+    if (!checkCollision(boardRef.current, newPiece)) {
+      currentPieceRef.current = newPiece
+      setCurrentPiece(newPiece)
+      render()
     }
-  }, [])
+  }, [isPaused, gameOver, render])
+
+  // 旋转方块
+  const rotatePiece = useCallback(() => {
+    if (!currentPieceRef.current || isPaused || gameOver) return
+    
+    const piece = currentPieceRef.current
+    const rotated = rotate(piece)
+    
+    const kicks = [0, -1, 1, -2, 2]
+    for (const kick of kicks) {
+      const newPiece = { ...rotated, x: piece.x + kick }
+      if (!checkCollision(boardRef.current, newPiece)) {
+        currentPieceRef.current = newPiece
+        setCurrentPiece(newPiece)
+        render()
+        break
+      }
+    }
+  }, [isPaused, gameOver, render])
+
+  // 快速下落
+  const hardDrop = useCallback(() => {
+    if (!currentPieceRef.current || isPaused || gameOver) return
+    
+    const piece = currentPieceRef.current
+    let newY = piece.y
+    while (!checkCollision(boardRef.current, { ...piece, y: newY + 1 })) {
+      newY++
+    }
+    
+    const newPiece = { ...piece, y: newY }
+    const newBoard = mergePiece(boardRef.current, newPiece)
+    const { board: clearedBoard, linesCleared } = clearLines(newBoard)
+    
+    const newLines = lines + linesCleared
+    const newScore = score + linesCleared * 100 * level
+    const newLevel = Math.floor(newLines / 10) + 1
+    
+    const newNextPiece = createPiece()
+    const oldNext = nextPiece || createPiece()
+    
+    boardRef.current = clearedBoard
+    currentPieceRef.current = oldNext
+    nextPieceRef.current = newNextPiece
+    
+    setBoard(clearedBoard)
+    setLines(newLines)
+    setScore(newScore)
+    setLevel(newLevel)
+    setCurrentPiece(oldNext)
+    setNextPiece(newNextPiece)
+    
+    if (checkCollision(clearedBoard, oldNext)) {
+      setGameOver(true)
+      stopGameLoop()
+    }
+    
+    render()
+  }, [isPaused, gameOver, lines, score, level, nextPiece, render, stopGameLoop])
 
   // 键盘事件处理
   useEffect(() => {
     const handleKeyPress = (e) => {
-      if (!gameStartedRef.current || gameOverRef.current) return
+      if (!gameStarted || gameOver) return
       
       switch (e.key) {
         case 'ArrowLeft':
@@ -348,7 +289,8 @@ export default function TetrisGame() {
           break
         case 'ArrowDown':
           e.preventDefault()
-          dropPiece()
+          gameLoopRef.current && cancelAnimationFrame(gameLoopRef.current)
+          gameLoopRef.current = requestAnimationFrame(gameLoop)
           break
         case 'ArrowUp':
           e.preventDefault()
@@ -361,49 +303,32 @@ export default function TetrisGame() {
         case 'p':
         case 'P':
           e.preventDefault()
-          togglePause()
+          setIsPaused(prev => {
+            if (!prev) {
+              stopGameLoop()
+            } else {
+              startGameLoop()
+            }
+            return !prev
+          })
           break
       }
     }
     
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [movePiece, dropPiece, rotatePiece, hardDrop])
-
-  // 切换暂停
-  const togglePause = useCallback(() => {
-    if (!gameStartedRef.current) return
-    
-    const newPaused = !isPausedRef.current
-    isPausedRef.current = newPaused
-    setIsPaused(newPaused)
-    
-    if (!newPaused) {
-      startGameLoop()
-    } else {
-      stopGameLoop()
-    }
-  }, [startGameLoop, stopGameLoop])
+  }, [gameStarted, gameOver, movePiece, rotatePiece, hardDrop, gameLoop, startGameLoop, stopGameLoop])
 
   // 开始游戏
   const startGame = useCallback(() => {
-    // 重置所有状态
     const newBoard = createBoard()
     const newPiece = createPiece()
     const newNextPiece = createPiece()
     
-    // 更新 refs
     boardRef.current = newBoard
     currentPieceRef.current = newPiece
     nextPieceRef.current = newNextPiece
-    scoreRef.current = 0
-    linesRef.current = 0
-    levelRef.current = 1
-    isPausedRef.current = false
-    gameOverRef.current = false
-    gameStartedRef.current = true
     
-    // 更新 state
     setBoard(newBoard)
     setCurrentPiece(newPiece)
     setNextPiece(newNextPiece)
@@ -414,7 +339,6 @@ export default function TetrisGame() {
     setGameOver(false)
     setGameStarted(true)
     
-    // 启动游戏循环
     setTimeout(() => {
       startGameLoop()
       render()
@@ -424,7 +348,18 @@ export default function TetrisGame() {
   // 重新开始游戏
   const restartGame = useCallback(() => {
     stopGameLoop()
-    startGame()
+    setGameStarted(false)
+    setGameOver(false)
+    setScore(0)
+    setLines(0)
+    setLevel(1)
+    setBoard(null)
+    setCurrentPiece(null)
+    setNextPiece(null)
+    
+    setTimeout(() => {
+      startGame()
+    }, 100)
   }, [stopGameLoop, startGame])
 
   return (
@@ -476,7 +411,14 @@ export default function TetrisGame() {
             </div>
             
             <div className="controls">
-              <button onClick={togglePause} className="control-btn">
+              <button onClick={() => setIsPaused(prev => {
+                if (!prev) {
+                  stopGameLoop()
+                } else {
+                  startGameLoop()
+                }
+                return !prev
+              })} className="control-btn">
                 {isPaused ? '▶️ 继续' : '⏸️ 暂停'}
               </button>
               <button onClick={restartGame} className="control-btn">
