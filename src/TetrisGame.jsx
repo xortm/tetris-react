@@ -231,10 +231,7 @@ export default function TetrisGame() {
         case 'p':
         case 'P':
           e.preventDefault()
-          setIsPaused(prev => {
-            isPausedRef.current = !prev
-            return !prev
-          })
+          togglePause()
           break
       }
     }
@@ -245,7 +242,7 @@ export default function TetrisGame() {
 
   // 游戏循环
   const update = useCallback((time = 0) => {
-    if (isPaused) return
+    if (isPausedRef.current) return
     
     const deltaTime = time - lastTimeRef.current
     lastTimeRef.current = time
@@ -261,7 +258,7 @@ export default function TetrisGame() {
     drawNextPiece()
     
     requestRef.current = requestAnimationFrame(update)
-  }, [dropPiece, drawBoard, drawNextPiece, isPaused])
+  }, [dropPiece, drawBoard, drawNextPiece])
 
   // 初始化游戏
   useEffect(() => {
@@ -292,6 +289,11 @@ export default function TetrisGame() {
 
   // 重新开始游戏
   const restartGame = () => {
+    // 取消之前的动画帧
+    if (requestRef.current) {
+      cancelAnimationFrame(requestRef.current)
+    }
+    
     setBoard(createBoard())
     const piece = createPiece()
     setCurrentPiece(piece)
@@ -303,11 +305,22 @@ export default function TetrisGame() {
     setIsPaused(false)
     dropCounterRef.current = 0
     lastTimeRef.current = 0
+    
+    // 重新启动游戏循环
+    requestRef.current = requestAnimationFrame(update)
   }
 
   // 切换暂停
   const togglePause = () => {
-    setIsPaused(!isPaused)
+    const newPausedState = !isPaused
+    isPausedRef.current = newPausedState
+    setIsPaused(newPausedState)
+    
+    // 如果从暂停恢复，重新启动游戏循环
+    if (!newPausedState) {
+      lastTimeRef.current = performance.now()
+      requestRef.current = requestAnimationFrame(update)
+    }
   }
 
   return (
