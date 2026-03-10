@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react'
+import React, { useRef, useEffect, useCallback, useState } from 'react'
 import {
   createPiece,
   rotate,
@@ -17,21 +17,21 @@ export default function TetrisGame() {
   const requestRef = useRef(null)
   
   // 游戏状态
-  const [board, setBoard] = React.useState(createBoard())
-  const [currentPiece, setCurrentPiece] = React.useState(null)
-  const [nextPiece, setNextPiece] = React.useState(null)
-  const [score, setScore] = React.useState(0)
-  const [level, setLevel] = React.useState(1)
-  const [lines, setLines] = React.useState(0)
-  const [gameOver, setGameOver] = React.useState(false)
-  const [isPaused, setIsPaused] = React.useState(false)
+  const [board, setBoard] = useState(createBoard())
+  const [currentPiece, setCurrentPiece] = useState(null)
+  const [nextPiece, setNextPiece] = useState(null)
+  const [score, setScore] = useState(0)
+  const [level, setLevel] = useState(1)
+  const [lines, setLines] = useState(0)
+  const [gameOver, setGameOver] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
+  const [gameStarted, setGameStarted] = useState(false)
   
   // 计时器引用
   const dropCounterRef = useRef(0)
   const dropIntervalRef = useRef(1000)
   const lastTimeRef = useRef(0)
-  const isPausedRef = useRef(false)
-
+  
   // 绘制单个方块
   const drawBlock = useCallback((ctx, x, y, color) => {
     ctx.fillStyle = color
@@ -51,6 +51,8 @@ export default function TetrisGame() {
   // 绘制棋盘
   const drawBoard = useCallback(() => {
     const canvas = canvasRef.current
+    if (!canvas) return
+    
     const ctx = canvas.getContext('2d')
     
     // 清空画布
@@ -97,6 +99,8 @@ export default function TetrisGame() {
   // 绘制下一个方块
   const drawNextPiece = useCallback(() => {
     const canvas = nextCanvasRef.current
+    if (!canvas) return
+    
     const ctx = canvas.getContext('2d')
     
     // 清空画布
@@ -119,9 +123,15 @@ export default function TetrisGame() {
     })
   }, [nextPiece, drawBlock])
 
+  // 绘制游戏画面
+  const render = useCallback(() => {
+    drawBoard()
+    drawNextPiece()
+  }, [drawBoard, drawNextPiece])
+
   // 方块下落
   const dropPiece = useCallback(() => {
-    if (!currentPiece || isPaused) return
+    if (!currentPiece || isPaused || gameOver) return
     
     const newPiece = { ...currentPiece, y: currentPiece.y + 1 }
     
@@ -147,7 +157,7 @@ export default function TetrisGame() {
     } else {
       setCurrentPiece(newPiece)
     }
-  }, [currentPiece, board, level, lines, isPaused])
+  }, [currentPiece, board, level, lines, nextPiece, isPaused, gameOver])
 
   // 移动方块
   const movePiece = useCallback((direction) => {
@@ -162,7 +172,7 @@ export default function TetrisGame() {
 
   // 旋转方块
   const rotatePiece = useCallback(() => {
-    if (!currentPiece || isPaused) return
+    if (!currentPiece || isPaused || gameOver) return
     
     const rotated = rotate(currentPiece)
     
@@ -175,7 +185,7 @@ export default function TetrisGame() {
         break
       }
     }
-  }, [currentPiece, board, isPaused])
+  }, [currentPiece, board, isPaused, gameOver])
 
   // 快速下落
   const hardDrop = useCallback(() => {
@@ -202,11 +212,13 @@ export default function TetrisGame() {
     if (checkCollision(clearedBoard, nextPiece)) {
       setGameOver(true)
     }
-  }, [currentPiece, board, level, lines, isPaused, gameOver])
+  }, [currentPiece, board, level, lines, nextPiece, isPaused, gameOver])
 
   // 键盘事件处理
   useEffect(() => {
     const handleKeyPress = (e) => {
+      if (!gameStarted || gameOver) return
+      
       switch (e.key) {
         case 'ArrowLeft':
           e.preventDefault()
@@ -231,18 +243,23 @@ export default function TetrisGame() {
         case 'p':
         case 'P':
           e.preventDefault()
-          togglePause()
+          setIsPaused(prev => !prev)
           break
       }
     }
     
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [movePiece, dropPiece, rotatePiece, hardDrop])
+  }, [gameStarted, gameOver, movePiece, dropPiece, rotatePiece, hardDrop])
 
   // 游戏循环
-  const update = useCallback((time = 0) => {
-    if (isPausedRef.current) return
+  const gameLoop = useCallback((time = 0) => {
+    if (!gameStarted || isPaused || gameOver) {
+      if (gameStarted && !isPaused && !gameOver) {
+        requestRef.current = requestAnimationFrame(gameLoop)
+      }
+      return
+    }
     
     const deltaTime = time - lastTimeRef.current
     lastTimeRef.current = time
@@ -254,46 +271,38 @@ export default function TetrisGame() {
       dropCounterRef.current = 0
     }
     
-    drawBoard()
-    drawNextPiece()
+    render()
     
-    requestRef.current = requestAnimationFrame(update)
-  }, [dropPiece, drawBoard, drawNextPiece])
+    requestRef.current = requestAnimationFrame(gameLoop)
+  }, [gameStarted, isPaused, gameOver, dropPiece, render])
 
-  // 初始化游戏
+  // 当游戏状态改变时更新循环
   useEffect(() => {
-    const initGame = () => {
-      setBoard(createBoard())
-      const piece = createPiece()
-      setCurrentPiece(piece)
-      setNextPiece(createPiece())
-      setScore(0)
-      setLevel(1)
-      setLines(0)
-      setGameOver(false)
-      setIsPaused(false)
-      dropCounterRef.current = 0
-      lastTimeRef.current = 0
+    if (gameStarted && !isPaused && !gameOver) {
+      if (requestRef.current) {
+        cancelAnimationFrame(requestRef.current)
+      }
+      lastTimeRef.current = performance.now()
+      requestRef.current = requestAnimationFrame(gameLoop)
+    } else if (requestRef.current) {
+      cancelAnimationFrame(requestRef.current)
+      requestRef.current = null
     }
-    
-    initGame()
-    
-    requestRef.current = requestAnimationFrame(update)
     
     return () => {
       if (requestRef.current) {
         cancelAnimationFrame(requestRef.current)
       }
     }
-  }, [])
+  }, [gameStarted, isPaused, gameOver, gameLoop])
 
-  // 重新开始游戏
-  const restartGame = () => {
-    // 取消之前的动画帧
-    if (requestRef.current) {
-      cancelAnimationFrame(requestRef.current)
-    }
-    
+  // 初始化画面
+  useEffect(() => {
+    render()
+  }, [render])
+
+  // 开始游戏
+  const startGame = () => {
     setBoard(createBoard())
     const piece = createPiece()
     setCurrentPiece(piece)
@@ -303,74 +312,81 @@ export default function TetrisGame() {
     setLines(0)
     setGameOver(false)
     setIsPaused(false)
+    setGameStarted(true)
     dropCounterRef.current = 0
-    lastTimeRef.current = 0
-    
-    // 重新启动游戏循环
-    requestRef.current = requestAnimationFrame(update)
+    lastTimeRef.current = performance.now()
+  }
+
+  // 重新开始游戏
+  const restartGame = () => {
+    startGame()
   }
 
   // 切换暂停
   const togglePause = () => {
-    const newPausedState = !isPaused
-    isPausedRef.current = newPausedState
-    setIsPaused(newPausedState)
-    
-    // 如果从暂停恢复，重新启动游戏循环
-    if (!newPausedState) {
-      lastTimeRef.current = performance.now()
-      requestRef.current = requestAnimationFrame(update)
-    }
+    if (!gameStarted) return
+    setIsPaused(prev => !prev)
   }
 
   return (
     <div className="game-container">
       <h1>🎮 俄罗斯方块</h1>
       
-      <div className="game-area">
-        <canvas
-          ref={canvasRef}
-          width={COLS * BLOCK_SIZE}
-          height={ROWS * BLOCK_SIZE}
-          className="game-canvas"
-        />
-        
-        <div className="side-panel">
-          <div className="info-box">
-            <div className="info-label">下一个</div>
-            <canvas
-              ref={nextCanvasRef}
-              width={4 * BLOCK_SIZE}
-              height={4 * BLOCK_SIZE}
-              className="next-canvas"
-            />
-          </div>
-          
-          <div className="info-box">
-            <div className="info-label">分数</div>
-            <div className="info-value">{score}</div>
-          </div>
-          
-          <div className="info-box">
-            <div className="info-label">等级</div>
-            <div className="info-value">{level}</div>
-          </div>
-          
-          <div className="info-box">
-            <div className="info-label">行数</div>
-            <div className="info-value">{lines}</div>
-          </div>
-          
-          <div className="controls">
-            <button onClick={togglePause} className="control-btn">
-              {isPaused ? '▶️ 继续' : '⏸️ 暂停'}
-            </button>
-            <button onClick={restartGame} className="control-btn">
-              🔄 重新开始
+      {!gameStarted ? (
+        <div className="start-overlay">
+          <div className="start-content">
+            <h2>俄罗斯方块</h2>
+            <button onClick={startGame} className="start-btn">
+              开始游戏
             </button>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="game-area">
+          <canvas
+            ref={canvasRef}
+            width={COLS * BLOCK_SIZE}
+            height={ROWS * BLOCK_SIZE}
+            className="game-canvas"
+          />
+          
+          <div className="side-panel">
+            <div className="info-box">
+              <div className="info-label">下一个</div>
+              <canvas
+                ref={nextCanvasRef}
+                width={4 * BLOCK_SIZE}
+                height={4 * BLOCK_SIZE}
+                className="next-canvas"
+              />
+            </div>
+            
+            <div className="info-box">
+              <div className="info-label">分数</div>
+              <div className="info-value">{score}</div>
+            </div>
+            
+            <div className="info-box">
+              <div className="info-label">等级</div>
+              <div className="info-value">{level}</div>
+            </div>
+            
+            <div className="info-box">
+              <div className="info-label">行数</div>
+              <div className="info-value">{lines}</div>
+            </div>
+            
+            <div className="controls">
+              <button onClick={togglePause} className="control-btn">
+                {isPaused ? '▶️ 继续' : '⏸️ 暂停'}
+              </button>
+              <button onClick={restartGame} className="control-btn">
+                🔄 重新开始
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className="instructions">
         <h3>🎯 操作说明</h3>
