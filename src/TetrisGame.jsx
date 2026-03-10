@@ -36,6 +36,9 @@ export default function TetrisGame() {
   const boardRef = useRef(null)
   const currentPieceRef = useRef(null)
   const nextPieceRef = useRef(null)
+  const scoreRef = useRef(0)
+  const linesRef = useRef(0)
+  const levelRef = useRef(1)
   const isPausedRef = useRef(false)
   const gameOverRef = useRef(false)
   const gameStartedRef = useRef(false)
@@ -423,11 +426,6 @@ export default function TetrisGame() {
     stopGameLoop()
     startGame()
   }, [stopGameLoop, startGame])
-  
-  // 额外的 refs
-  const scoreRef = useRef(0)
-  const linesRef = useRef(0)
-  const levelRef = useRef(1)
 
   // 初始化时绘制空棋盘
   useEffect(() => {
