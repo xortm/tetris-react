@@ -427,19 +427,6 @@ export default function TetrisGame() {
     startGame()
   }, [stopGameLoop, startGame])
 
-  // 初始化时绘制空棋盘
-  useEffect(() => {
-    if (!gameStarted && !board) {
-      const emptyBoard = createBoard()
-      setBoard(emptyBoard)
-      boardRef.current = emptyBoard
-      
-      setTimeout(() => {
-        render()
-      }, 100)
-    }
-  }, [gameStarted, board, render])
-
   return (
     <div className="game-container">
       <h1>🎮 俄罗斯方块</h1>
