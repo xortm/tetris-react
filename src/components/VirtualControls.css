@@ -1,0 +1,74 @@
+.virtual-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
+}
+
+.d-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.d-btn {
+  width: 60px;
+  height: 60px;
+  font-size: 24px;
+  border-radius: 8px;
+  background: #2a2a4e;
+  border: 2px solid #1a1a2e;
+  color: white;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+
+.d-btn:active {
+  background: #4a90e2;
+  transform: scale(0.95);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.action-btn {
+  width: 50px;
+  height: 50px;
+  font-size: 20px;
+  border-radius: 8px;
+  background: #10b981;
+  border: 2px solid #0d8e70;
+  color: white;
+  cursor: pointer;
+  padding: 10px;
+  transition: all 0.2s ease;
+}
+
+.action-btn:active {
+  background: #4caf50;
+  transform: scale(0.95);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* 移动端特定样式 */
+@media (max-width: 768px) {
+  .d-pad {
+    gap: 15px;
+  }
+  
+  .d-btn {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .action-buttons {
+    gap: 8px;
+  }
+}

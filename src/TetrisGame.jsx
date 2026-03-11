@@ -1,4 +1,5 @@
-import React, { useRef, useEffect, useCallback, useState } from 'react'
+import React, { useRef, useEffect, useState, useCallback } from 'react'
+import VirtualControls from './components/VirtualControls'
 import {
   createPiece,
   rotate,
@@ -9,7 +10,7 @@ import {
   COLS,
   ROWS,
   BLOCK_SIZE
-} from './gameLogic.js'
+} from './utils/gameLogic.js'
 
 export default function TetrisGame() {
   const canvasRef = useRef(null)
@@ -20,7 +21,7 @@ export default function TetrisGame() {
   const [currentPiece, setCurrentPiece] = useState(null)
   const [nextPiece, setNextPiece] = useState(null)
   const [score, setScore] = useState(0)
-  const [level, setLevel] = useState(1)
+  const [level, setLevelLevel] = useState(1)
   const [lines, setLines] = useState(0)
   const [gameOver, setGameOver] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
@@ -37,6 +38,12 @@ export default function TetrisGame() {
   const currentPieceRef = useRef(null)
   const nextPieceRef = useRef(null)
   
+  // 移动端检测
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' && 
+    (window.innerWidth <= 768 || 'ontouchstart' in window)
+  )
+  
   // 绘制单个方块
   const drawBlock = useCallback((ctx, x, y, color) => {
     ctx.fillStyle = color
@@ -47,8 +54,7 @@ export default function TetrisGame() {
     ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, 3, BLOCK_SIZE - 1)
     
     ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'
-    ctx.fillRect(x * BLOCK_SIZE, (y + 1) * BLOCK_SIZE - 4, BLOCK_SIZE - 1, 3)
-    ctx.fillRect((x + 1) * BLOCK_SIZE - 4, y * BLOCK_SIZE, 3, BLOCK_SIZE - 1)
+    ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, 3, BLOCK_SIZE - 1)
   }, [])
 
   // 绘制棋盘
@@ -161,7 +167,7 @@ export default function TetrisGame() {
           
           const newLines = lines + linesCleared
           const newScore = score + linesCleared * 100 * level
-          const newLevel = Math.floor(newLines / 10) + 1
+          const newLevelLevel = Math.floor(newLines / 10) + 1
           
           const newNextPiece = createPiece()
           const oldNext = nextPiece || createPiece()
@@ -173,7 +179,7 @@ export default function TetrisGame() {
           setBoard(clearedBoard)
           setLines(newLines)
           setScore(newScore)
-          setLevel(newLevel)
+          setLevelLevel(newLevelLevel)
           setCurrentPiece(oldNext)
           setNextPiece(newNextPiece)
           
@@ -192,14 +198,6 @@ export default function TetrisGame() {
     gameLoopRef.current = requestAnimationFrame(gameLoop)
   }, [gameStarted, isPaused, gameOver, lines, score, level, nextPiece, render, stopGameLoop])
   
-  // 启动游戏循环
-  const startGameLoop = useCallback(() => {
-    stopGameLoop()
-    lastTimeRef.current = performance.now()
-    dropCounterRef.current = 0
-    gameLoopRef.current = requestAnimationFrame(gameLoop)
-  }, [stopGameLoop, gameLoop])
-
   // 移动方块
   const movePiece = useCallback((direction) => {
     if (!currentPieceRef.current || isPaused || gameOver) return
@@ -249,7 +247,7 @@ export default function TetrisGame() {
     
     const newLines = lines + linesCleared
     const newScore = score + linesCleared * 100 * level
-    const newLevel = Math.floor(newLines / 10) + 1
+    const newLevelLevel = Math.floor(newLines / 10) + 1
     
     const newNextPiece = createPiece()
     const oldNext = nextPiece || createPiece()
@@ -261,7 +259,7 @@ export default function TetrisGame() {
     setBoard(clearedBoard)
     setLines(newLines)
     setScore(newScore)
-    setLevel(newLevel)
+    setLevelLevel(newLevelLevel)
     setCurrentPiece(oldNext)
     setNextPiece(newNextPiece)
     
@@ -334,16 +332,16 @@ export default function TetrisGame() {
     setNextPiece(newNextPiece)
     setScore(0)
     setLines(0)
-    setLevel(1)
+    setLevelLevel(1)
     setIsPaused(false)
     setGameOver(false)
     setGameStarted(true)
     
     setTimeout(() => {
-      startGameLoop()
+      start startGameLoop()
       render()
     }, 100)
-  }, [startGameLoop, render])
+  }, [stopGameLoop, startGameLoop, render])
 
   // 重新开始游戏
   const restartGame = useCallback(() => {
@@ -352,7 +350,7 @@ export default function TetrisGame() {
     setGameOver(false)
     setScore(0)
     setLines(0)
-    setLevel(1)
+    setLevelLevel(1)
     setBoard(null)
     setCurrentPiece(null)
     setNextPiece(null)
@@ -360,7 +358,7 @@ export default function TetrisGame() {
     setTimeout(() => {
       startGame()
     }, 100)
-  }, [stopGameLoop, startGame])
+  }, [stopGameLoop, startGameLoop])
 
   return (
     <div className="game-container">
@@ -384,92 +382,12 @@ export default function TetrisGame() {
             className="game-canvas"
           />
           
-          <div className="side-panel">
-            <div className="info-box">
-              <div className="info-label">下一个</div>
-              <canvas
-                ref={nextCanvasRef}
-                width={4 * BLOCK_SIZE}
-                height={4 * BLOCK_SIZE}
-                className="next-canvas"
-              />
-            </div>
-            
-            <div className="info-box">
-              <div className="info-label">分数</div>
-              <div className="info-value">{score}</div>
-            </div>
-            
-            <div className="info-box">
-              <div className="info-label">等级</div>
-              <div className="info-value">{level}</div>
-            </div>
-            
-            <div className="info-box">
-              <div className="info-label">行数</div>
-              <div className="info-value">{lines}</div>
-            </div>
-            
-            <div className="controls">
-              <button onClick={() => setIsPaused(prev => {
-                if (!prev) {
-                  stopGameLoop()
-                } else {
-                  startGameLoop()
-                }
-                return !prev
-              })} className="control-btn">
-                {isPaused ? '▶️ 继续' : '⏸️ 暂停'}
-              </button>
-              <button onClick={restartGame} className="control-btn">
-                🔄 重新开始
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      <div className="instructions">
-        <h3>🎯 操作说明</h3>
-        <div className="instruction-grid">
-          <div className="instruction-item">
-            <span className="key">←</span>
-            <span className="description">左移</span>
-          </div>
-          <div className="instruction-item">
-            <span className="key">→</span>
-            <span className="description">右移</span>
-          </div>
-          <div className="instruction-item">
-            <span className="key">↓</span>
-            <span className="description">下落</span>
-          </div>
-          <div className="instruction-item">
-            <span className="key">↑</span>
-            <span className="description">旋转</span>
-          </div>
-          <div className="instruction-item">
-            <span className="key">空格</span>
-            <span className="description">快速下落</span>
-          </div>
-          <div className="instruction-item">
-            <span className="key">P</span>
-            <span className="description">暂停</span>
-          </div>
-        </div>
-      </div>
-      
-      {gameOver && (
-        <div className="game-over-overlay">
-          <div className="game-over-content">
-            <h2>游戏结束</h2>
-            <p>最终分数：<span className="final-score">{score}</span></p>
-            <button onClick={restartGame} className="restart-btn">
-              重新开始
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+          {/* 移动端优先显示虚拟控制 */}
+          {isMobile && (
+            <VirtualControls
+              onMove={movePiece}
+              onRotate={rotatePiece}
+              onHardDrop={hardDrop}
+              onPause={() => setIsPaused(prev => !prev)}
+            />
+          )}
