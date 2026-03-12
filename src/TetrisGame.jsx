@@ -341,6 +341,9 @@ export default function TetrisGame() {
   return (
     <div className="game-container">
       <h1>🎮 俄罗斯方块</h1>
+      <div style={{ textAlign: 'center', fontSize: '12px', color: '#888', marginBottom: '10px' }}>
+        版本号 v1.0.0 | 2026-03-12 构建
+      </div>
       
       {!gameStarted ? (
         <div className="start-overlay">
