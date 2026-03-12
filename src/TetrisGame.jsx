@@ -23,6 +23,14 @@ export default function TetrisGame() {
   const [lines, setLines] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   
+  // 调试日志
+  console.log('组件初始化，gameStarted:', gameStarted)
+  
+  // 监听 gameStarted 变化
+  useEffect(() => {
+    console.log('gameStarted 变化:', gameStarted)
+  }, [gameStarted])
+  
   // 游戏数据 refs
   const boardRef = useRef(null)
   const currentPieceRef = useRef(null)
@@ -338,6 +346,9 @@ export default function TetrisGame() {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [gameStarted, gameOver, movePiece, rotatePiece, hardDrop, gameLoop, startGameLoop, stopGameLoop])
 
+  // 强制初始显示开始界面
+  const showStartScreen = !gameStarted || !currentPieceRef.current
+
   return (
     <div className="game-container">
       <h1>🎮 俄罗斯方块</h1>
@@ -345,7 +356,7 @@ export default function TetrisGame() {
         版本号 v1.0.0 | 2026-03-12 构建
       </div>
       
-      {!gameStarted ? (
+      {showStartScreen ? (
         <div className="start-overlay">
           <div className="start-content">
             <h2>俄罗斯方块</h2>
