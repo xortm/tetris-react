@@ -142,6 +142,14 @@ export default function TetrisGame() {
     }
   }, [])
 
+  // 开始游戏循环
+
+  const startGameLoop = useCallback(() => {
+    lastTimeRef.current = performance.now()
+    dropCounterRef.current = 0
+    gameLoopRef.current = requestAnimationFrame(gameLoop)
+  }, [gameLoop])
+
   // 游戏循环函数
   const gameLoop = useCallback((timestamp) => {
     if (!gameStarted || isPaused || gameOver) {
@@ -338,7 +346,7 @@ export default function TetrisGame() {
     setGameStarted(true)
     
     setTimeout(() => {
-      start startGameLoop()
+      startGameLoop()
       render()
     }, 100)
   }, [stopGameLoop, startGameLoop, render])
