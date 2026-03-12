@@ -15,21 +15,11 @@ export default function TetrisGame() {
   const canvasRef = useRef(null)
   const nextCanvasRef = useRef(null)
   
-  // 游戏状态
-  const [gameStarted, setGameStarted] = useState(false)
-  const [gameOver, setGameOver] = useState(false)
+  // 游戏状态 - 简化，避免复杂逻辑
+  const [gameState, setGameState] = useState('init') // init | playing | paused | gameover
   const [score, setScore] = useState(0)
   const [level, setLevel] = useState(1)
   const [lines, setLines] = useState(0)
-  const [isPaused, setIsPaused] = useState(false)
-  
-  // 调试日志
-  console.log('组件初始化，gameStarted:', gameStarted)
-  
-  // 监听 gameStarted 变化
-  useEffect(() => {
-    console.log('gameStarted 变化:', gameStarted)
-  }, [gameStarted])
   
   // 游戏数据 refs
   const boardRef = useRef(null)
@@ -39,6 +29,47 @@ export default function TetrisGame() {
   const lastTimeRef = useRef(0)
   const dropCounterRef = useRef(0)
   const dropIntervalRef = useRef(1000)
+
+  // 强制显示初始化界面
+  if (gameState === 'init') {
+    return (
+      <div className="game-container">
+        <h1>🎮 俄罗斯方块</h1>
+        <div style={{ textAlign: 'center', fontSize: '12px', color: '#888', marginBottom: '20px' }}>
+          版本号 v1.0.1 | 2026-03-12 12:02 构建
+        </div>
+        <div className="start-overlay">
+          <div className="start-content">
+            <h2>俄罗斯方块</h2>
+            <button 
+              onClick={() => {
+                console.log('按钮被点击了！开始游戏！')
+                alert('按钮点击成功！游戏即将开始')
+                setGameState('playing')
+              }} 
+              className="start-btn"
+              style={{
+                fontSize: '24px',
+                padding: '20px 40px',
+                backgroundColor: '#4CAF50',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              👉 开始游戏 👈
+            </button>
+          </div>
+        </div>
+        <div style={{ marginTop: '20px', padding: '10px', border: '2px dashed #ccc', textAlign: 'center' }}>
+          <h3>测试说明</h3>
+          <p>点击上面的绿色按钮，如果弹出提示框，说明点击有效！</p>
+          <p>如果没反应，请打开F12控制台看是否有错误</p>
+        </div>
+      </div>
+    )
+  }
 
   // 绘制单个方块
   const drawBlock = useCallback((ctx, x, y, color) => {
@@ -141,7 +172,7 @@ export default function TetrisGame() {
 
   // 游戏循环
   const gameLoop = useCallback((timestamp) => {
-    if (!gameStarted || isPaused || gameOver) {
+    if (gameState !== 'playing') {
       return
     }
     
@@ -180,7 +211,7 @@ export default function TetrisGame() {
           
           // 检查游戏结束
           if (checkCollision(boardRef.current, currentPieceRef.current)) {
-            setGameOver(true)
+            setGameState('gameover')
             stopGameLoop()
           }
         } else {
@@ -191,18 +222,37 @@ export default function TetrisGame() {
     
     render()
     gameLoopRef.current = requestAnimationFrame(gameLoop)
-  }, [gameStarted, isPaused, gameOver, lines, score, level, render, stopGameLoop])
+  }, [gameState, lines, score, level, render, stopGameLoop])
 
-  // 开始游戏循环
-  const startGameLoop = useCallback(() => {
-    lastTimeRef.current = performance.now()
-    dropCounterRef.current = 0
-    gameLoopRef.current = requestAnimationFrame(gameLoop)
-  }, [gameLoop])
+  // 开始游戏逻辑
+  useEffect(() => {
+    if (gameState === 'playing') {
+      console.log('开始游戏逻辑')
+      
+      // 初始化游戏数据
+      boardRef.current = createBoard()
+      currentPieceRef.current = createPiece()
+      nextPieceRef.current = createPiece()
+      
+      setScore(0)
+      setLines(0)
+      setLevel(1)
+      
+      // 启动游戏循环
+      lastTimeRef.current = performance.now()
+      dropCounterRef.current = 0
+      gameLoopRef.current = requestAnimationFrame(gameLoop)
+      render()
+    }
+    
+    return () => {
+      stopGameLoop()
+    }
+  }, [gameState, gameLoop, render, stopGameLoop])
 
   // 移动方块
   const movePiece = useCallback((direction) => {
-    if (!currentPieceRef.current || isPaused || gameOver) return
+    if (!currentPieceRef.current || gameState !== 'playing') return
     
     const piece = currentPieceRef.current
     const newPiece = { ...piece, x: piece.x + direction }
@@ -211,11 +261,11 @@ export default function TetrisGame() {
       currentPieceRef.current = newPiece
       render()
     }
-  }, [isPaused, gameOver, render])
+  }, [gameState, render])
 
   // 旋转方块
   const rotatePiece = useCallback(() => {
-    if (!currentPieceRef.current || isPaused || gameOver) return
+    if (!currentPieceRef.current || gameState !== 'playing') return
     
     const piece = currentPieceRef.current
     const rotated = rotate(piece)
@@ -230,11 +280,11 @@ export default function TetrisGame() {
         break
       }
     }
-  }, [isPaused, gameOver, render])
+  }, [gameState, render])
 
   // 快速下落
   const hardDrop = useCallback(() => {
-    if (!currentPieceRef.current || isPaused || gameOver) return
+    if (!currentPieceRef.current || gameState !== 'playing') return
     
     const piece = currentPieceRef.current
     let newY = piece.y
@@ -261,49 +311,17 @@ export default function TetrisGame() {
     
     // 检查游戏结束
     if (checkCollision(boardRef.current, currentPieceRef.current)) {
-      setGameOver(true)
+      setGameState('gameover')
       stopGameLoop()
     }
     
     render()
-  }, [isPaused, gameOver, lines, score, level, render, stopGameLoop])
-
-  // 开始游戏
-  const startGame = useCallback(() => {
-    console.log('开始游戏')
-    
-    boardRef.current = createBoard()
-    currentPieceRef.current = createPiece()
-    nextPieceRef.current = createPiece()
-    
-    setScore(0)
-    setLines(0)
-    setLevel(1)
-    setGameOver(false)
-    setIsPaused(false)
-    setGameStarted(true)
-    
-    setTimeout(() => {
-      startGameLoop()
-      render()
-    }, 100)
-  }, [startGameLoop, render])
-
-  // 重新开始游戏
-  const restartGame = useCallback(() => {
-    stopGameLoop()
-    setGameStarted(false)
-    setGameOver(false)
-    
-    setTimeout(() => {
-      startGame()
-    }, 100)
-  }, [stopGameLoop, startGame])
+  }, [gameState, lines, score, level, render, stopGameLoop])
 
   // 键盘事件
   useEffect(() => {
     const handleKeyPress = (e) => {
-      if (!gameStarted || gameOver) return
+      if (gameState !== 'playing') return
       
       switch (e.key) {
         case 'ArrowLeft':
@@ -330,94 +348,67 @@ export default function TetrisGame() {
         case 'p':
         case 'P':
           e.preventDefault()
-          setIsPaused(prev => {
-            if (!prev) {
-              stopGameLoop()
-            } else {
-              startGameLoop()
-            }
-            return !prev
-          })
+          setGameState(prev => prev === 'paused' ? 'playing' : 'paused')
           break
       }
     }
     
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [gameStarted, gameOver, movePiece, rotatePiece, hardDrop, gameLoop, startGameLoop, stopGameLoop])
+  }, [gameState, movePiece, rotatePiece, hardDrop, gameLoop])
 
-  // 强制初始显示开始界面
-  const showStartScreen = !gameStarted || !currentPieceRef.current
-
+  // 游戏界面
   return (
     <div className="game-container">
       <h1>🎮 俄罗斯方块</h1>
       <div style={{ textAlign: 'center', fontSize: '12px', color: '#888', marginBottom: '10px' }}>
-        版本号 v1.0.0 | 2026-03-12 构建
+        版本号 v1.0.1 | 2026-03-12 12:02 构建
       </div>
       
-      {showStartScreen ? (
-        <div className="start-overlay">
-          <div className="start-content">
-            <h2>俄罗斯方块</h2>
-            <button onClick={startGame} className="start-btn">
-              开始游戏
+      <div className="game-area">
+        <canvas
+          ref={canvasRef}
+          width={COLS * BLOCK_SIZE}
+          height={ROWS * BLOCK_SIZE}
+          className="game-canvas"
+        />
+        
+        <div className="side-panel">
+          <div className="info-box">
+            <div className="info-label">下一个</div>
+            <canvas
+              ref={nextCanvasRef}
+              width={4 * BLOCK_SIZE}
+              height={4 * BLOCK_SIZE}
+              className="next-canvas"
+            />
+          </div>
+          
+          <div className="info-box">
+            <div className="info-label">分数</div>
+            <div className="info-value">{score}</div>
+          </div>
+          
+          <div className="info-box">
+            <div className="info-label">等级</div>
+            <div className="info-value">{level}</div>
+          </div>
+          
+          <div className="info-box">
+            <div className="info-label">行数</div>
+            <div className="info-value">{lines}</div>
+          </div>
+          
+          <div className="controls">
+            <button onClick={() => setGameState(prev => prev === 'paused' ? 'playing' : 'paused')} className="control-btn">
+              {gameState === 'paused' ? '▶️ 继续' : '⏸️ 暂停'}
+            </button>
+            <button onClick={() => window.location.reload()} className="control-btn">
+              🔄 重新开始
             </button>
           </div>
         </div>
-      ) : (
-        <div className="game-area">
-          <canvas
-            ref={canvasRef}
-            width={COLS * BLOCK_SIZE}
-            height={ROWS * BLOCK_SIZE}
-            className="game-canvas"
-          />
-          
-          <div className="side-panel">
-            <div className="info-box">
-              <div className="info-label">下一个</div>
-              <canvas
-                ref={nextCanvasRef}
-                width={4 * BLOCK_SIZE}
-                height={4 * BLOCK_SIZE}
-                className="next-canvas"
-              />
-            </div>
-            
-            <div className="info-box">
-              <div className="info-label">分数</div>
-              <div className="info-value">{score}</div>
-            </div>
-            
-            <div className="info-box">
-              <div className="info-label">等级</div>
-              <div className="info-value">{level}</div>
-            </div>
-            
-            <div className="info-box">
-              <div className="info-label">行数</div>
-              <div className="info-value">{lines}</div>
-            </div>
-            
-            <div className="controls">
-              <button onClick={() => setIsPaused(prev => {
-                if (!prev) {
-                  stopGameLoop()
-                } else {
-                  startGameLoop()
-                }
-                return !prev
-              })} className="control-btn">
-                {isPaused ? '▶️ 继续' : '⏸️ 暂停'}
-              </button>
-              <button onClick={restartGame} className="control-btn">
-                🔄 重新开始
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      </div>
       
       <div className="instructions">
         <h3>🎯 操作说明</h3>
@@ -449,12 +440,12 @@ export default function TetrisGame() {
         </div>
       </div>
       
-      {gameOver && (
+      {gameState === 'gameover' && (
         <div className="game-over-overlay">
           <div className="game-over-content">
             <h2>游戏结束</h2>
             <p>最终分数：<span className="final-score">{score}</span></p>
-            <button onClick={restartGame} className="restart-btn">
+            <button onClick={() => window.location.reload()} className="restart-btn">
               重新开始
             </button>
           </div>
