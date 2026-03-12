@@ -5,13 +5,33 @@ export const BLOCK_SIZE = 30
 
 // 方块定义
 export const SHAPES = {
-  I: [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 1, 1], [0, 0, 0, 0], [0, 1, 1, 1], [0, 1, 1, 1], [0, 0, 0, 0], [0, 1, 1, 1]],
-  J: [[0, 0, 0, 0], [0, 0, 0, 0], [0, 1, 1, 1], [0, 0, 0, 0], [0, 1, 1, 1]],
-  L: [[0, 0, 0, 0], [0, 0, 0, 0], [0, 1, 1, 1], [0, 0, 0, 0], [0, 1, 1, 1]],
-  O: [[0, 0, 0, 0], [0, 0, 0, 0], [0, 1, 1, 1], [0, 1, 1, 1], [0, 1, 1, 1]],
-  S: [[0, 1, 1, 0], [0, 1, 1, 0], [0, 1, 1, 1], [0, 1, 1, 1], [0, 1, 1, 1]],
-  T: [[0, 1, 1, 1], [0, 1, 1, 0], [0, 1, 1, 1], [0, 1, 1, 1], [0, 1, 1, 1]],
-  Z: [[0, 0, 0, 0], [0, 1, 1, 0], [0, 1, 1, 1], [0, 1, 1, 1], [0, 1, 1, 1]]
+  I: [
+    [1, 1, 1, 1]
+  ],
+  J: [
+    [1, 0, 0],
+    [1, 1, 1]
+  ],
+  L: [
+    [0, 0, 1],
+    [1, 1, 1]
+  ],
+  O: [
+    [1, 1],
+    [1, 1]
+  ],
+  S: [
+    [0, 1, 1],
+    [1, 1, 0]
+  ],
+  T: [
+    [0, 1, 0],
+    [1, 1, 1]
+  ],
+  Z: [
+    [1, 1, 0],
+    [0, 1, 1]
+  ]
 }
 
 export const COLORS = {
@@ -40,6 +60,16 @@ export const getRandomPiece = () => {
 }
 
 /**
+ * 旋转方块
+ */
+export const rotate = (piece) => {
+  const newShape = piece.shape[0].map((_, idx) =>
+    piece.shape.map(row => row[idx]).reverse()
+  )
+  return { ...piece, shape: newShape }
+}
+
+/**
  * 检测碰撞
  */
 export const checkCollision = (board, piece) => {
@@ -47,8 +77,19 @@ export const checkCollision = (board, piece) => {
   
   for (let row = 0; row < piece.shape.length; row++) {
     for (let col = 0; col < piece.shape[row].length; col++) {
-      if (piece.shape[row][col] && board[row + piece.y + 1][col + piece.x]) {
-        return true
+      if (piece.shape[row][col]) {
+        const y = row + piece.y
+        const x = col + piece.x
+        
+        // 检查边界或重叠
+        if (
+          y >= ROWS ||
+          x < 0 ||
+          x >= COLS ||
+          (board[y] && board[y][x])
+        ) {
+          return true
+        }
       }
     }
   }
@@ -56,20 +97,35 @@ export const checkCollision = (board, piece) => {
 }
 
 /**
- * 消除行检测
+ * 创建新方块（别名）
  */
-export const checkLines = (board) => {
-  let linesCleared = 0
+export const createPiece = getRandomPiece
+
+/**
+ * 创建游戏棋盘
+ */
+export const createBoard = () => {
+  return Array.from({ length: ROWS }, () => Array(COLS).fill(0))
+}
+
+/**
+ * 合并方块到棋盘
+ */
+export const mergePiece = (board, piece) => {
+  const newBoard = board.map(row => [...row])
   
-  for (let row = ROWS - 1; row >= 0; row--) {
-    if (board[row].every(cell => cell !== 0)) {
-      // 移除这一行
-      board.splice(row, 1)
-      // 添加新的空行在顶部
-      board.unshift(new Array(COLS).fill(0))
-      linesCleared++
+  for (let row = 0; row < piece.shape.length; row++) {
+    for (let col = 0; col < piece.shape[row].length; col++) {
+      if (piece.shape[row][col]) {
+        newBoard[row + piece.y][col + piece.x] = piece.color
+      }
     }
   }
   
-  return { board, linesCleared }
+  return newBoard
 }
+
+/**
+ * 消除行检测（别名）
+ */
+export const clearLines = checkLines

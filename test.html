@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Tetris</title>
+    <script>
+        // 重写 console 以捕获所有错误
+        const originalConsole = { ...console };
+        const errorLogs = [];
+
+        console.error = function(...args) {
+            errorLogs.push({ type: 'error', args, timestamp: Date.now() });
+            originalConsole.error(...args);
+        };
+
+        console.warn = function(...args) {
+            errorLogs.push({ type: 'warn', args, timestamp: Date.now() });
+            originalConsole.warn(...args);
+        };
+
+        // 捕获未处理的错误
+        window.addEventListener('error', (event) => {
+            errorLogs.push({
+                type: 'uncaught-error',
+                message: event.message,
+                filename: event.filename,
+                lineno: event.lineno,
+                colno: event.colno,
+                error: event.error,
+                timestamp: Date.now()
+            });
+        });
+
+        // 捕获 Promise 错误
+        window.addEventListener('unhandledrejection', (event) => {
+            errorLogs.push({
+                type: 'unhandled-promise-rejection',
+                reason: event.reason,
+                timestamp: Date.now()
+            });
+        });
+
+        // 定期输出错误日志
+        setInterval(() => {
+            if (errorLogs.length > 0) {
+                console.log('=== 错误日志汇总 ===');
+                errorLogs.forEach((log, index) => {
+                    console.log(`[${index + 1}] ${log.type}:`, log);
+                });
+            }
+        }, 5000);
+    </script>
+</head>
+<body>
+    <h1>调试页面</h1>
+    <p>打开控制台查看错误信息</p>
+    <button onclick="testReactApp()">测试 React 应用</button>
+
+    <script>
+        function testReactApp() {
+            try {
+                console.log('开始测试 React 应用...');
+                // 这里会动态加载实际的应用
+                const script = document.createElement('script');
+                script.src = '/assets/index-CG5fOPwA.js';
+                script.onerror = (e) => console.error('脚本加载失败:', e);
+                script.onload = () => console.log('脚本加载成功');
+                document.body.appendChild(script);
+            } catch (error) {
+                console.error('测试失败:', error);
+            }
+        }
+    </script>
+</body>
+</html>
